@@ -1,8 +1,8 @@
 package com.client_person.dto.request;
 
+import jakarta.persistence.Entity;
 import lombok.*;
 
-@Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Setter
@@ -11,4 +11,5 @@ public class CreateClientRequestDto {
     private String clientId;
     private String password;
     private boolean status;
+    private Long personId;
 }

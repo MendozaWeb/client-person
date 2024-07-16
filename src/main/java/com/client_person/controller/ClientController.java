@@ -2,14 +2,13 @@ package com.client_person.controller;
 
 import com.client_person.dto.request.CreateClientRequestDto;
 import com.client_person.dto.response.ClientResponseDto;
-import com.client_person.exception.CustomException;
 import com.client_person.service.interfaces.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/clients")
@@ -19,15 +18,36 @@ public class ClientController {
     private ClientService clientService;
 
     @PostMapping("/create")
-    public ResponseEntity<ClientResponseDto> createClient(@RequestBody CreateClientRequestDto requestDto) {
-        try {
-            ClientResponseDto responseDto = clientService.createClient(requestDto);
-            return ResponseEntity.status(201).body(responseDto);
-        } catch (IllegalArgumentException e) {
-            throw new CustomException("Bad request: " + e.getMessage());
-        } catch (Exception e) {
-            throw new CustomException("Internal server error: " + e.getMessage());
-        }
+    public Mono<ResponseEntity<ClientResponseDto>> createClient(@RequestBody CreateClientRequestDto requestDto) {
+        return clientService.createClient(requestDto)
+                .map(responseDto -> ResponseEntity.status(201).body(responseDto));
+    }
+
+    @GetMapping("/list")
+    public Mono<ResponseEntity<List<ClientResponseDto>>> getAllClients() {
+        return clientService.getAllClients()
+                .collectList()
+                .map(ResponseEntity::ok);
+    }
+
+    @GetMapping("/list/{id}")
+    public Mono<ResponseEntity<ClientResponseDto>> getClientById(@PathVariable Long id) {
+        return clientService.getClientById(id)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/update/{id}")
+    public Mono<ResponseEntity<ClientResponseDto>> updateClient(@PathVariable Long id, @RequestBody CreateClientRequestDto requestDto) {
+        return clientService.updateClient(id, requestDto)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/delete/{id}")
+    public Mono<ResponseEntity<Void>> deleteClient(@PathVariable Long id) {
+        return clientService.deleteClient(id)
+                .thenReturn(ResponseEntity.noContent().build());
     }
 
 }

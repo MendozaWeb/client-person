@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,29 +22,57 @@ public class PersonServiceImpl implements PersonService {
     @Autowired
     private PersonRepository personRepository;
 
-    @Override
-    public PersonResponseDto createPerson(CreatePersonRequestDto requestDto) {
-        try {
-            Person person = new Person();
-            person.setName(requestDto.getName());
-            person.setGender(requestDto.getGender());
-            person.setAge(requestDto.getAge());
-            person.setAddress(requestDto.getAddress());
-            person.setPhone(requestDto.getPhone());
-            personRepository.save(person);
 
-            PersonResponseDto responseDto = new PersonResponseDto();
-            responseDto.setId(person.getId());
-            responseDto.setName(person.getName());
-            responseDto.setGender(person.getGender());
-            responseDto.setAge(person.getAge());
-            responseDto.setAddress(person.getAddress());
-            responseDto.setPhone(person.getPhone());
-            return responseDto;
-        } catch (Exception e) {
-            throw new CustomException("Error creating person: " + e.getMessage());
-        }
+    @Override
+    public Mono<PersonResponseDto> createPerson(CreatePersonRequestDto requestDto) {
+        Person person = new Person();
+        person.setName(requestDto.getName());
+        person.setGender(requestDto.getGender());
+        person.setAge(requestDto.getAge());
+        person.setAddress(requestDto.getAddress());
+        person.setPhone(requestDto.getPhone());
+        return Mono.just(personRepository.save(person))
+                .map(savedPerson -> new PersonResponseDto(savedPerson.getId(), savedPerson.getName(), savedPerson.getGender(),
+                        savedPerson.getAge(), savedPerson.getAddress(), savedPerson.getPhone()));
+
     }
 
+    @Override
+    public Flux<PersonResponseDto> getAllPersons() {
+        return Flux.fromIterable(personRepository.findAll())
+                .map(person -> new PersonResponseDto(person.getId(), person.getName(), person.getGender(), person.getAge(),
+                        person.getAddress(), person.getPhone()));
+    }
 
+    @Override
+    public Mono<PersonResponseDto> getPersonById(Long id) {
+        return Mono.justOrEmpty(personRepository.findById(id))
+                .switchIfEmpty(Mono.error(new CustomException("Person not found")))
+                .map(person -> new PersonResponseDto(person.getId(), person.getName(), person.getGender(), person.getAge(),
+                        person.getAddress(), person.getPhone()));
+    }
+
+    @Override
+    public Mono<PersonResponseDto> updatePerson(Long id, CreatePersonRequestDto requestDto) {
+        return Mono.justOrEmpty(personRepository.findById(id))
+                .switchIfEmpty(Mono.error(new CustomException("Person not found")))
+                .map(person -> {
+                    person.setName(requestDto.getName());
+                    person.setGender(requestDto.getGender());
+                    person.setAge(requestDto.getAge());
+                    person.setAddress(requestDto.getAddress());
+                    person.setPhone(requestDto.getPhone());
+                    return personRepository.save(person);
+                })
+                .map(updatedPerson -> new PersonResponseDto(updatedPerson.getId(), updatedPerson.getName(), updatedPerson.getGender(),
+                        updatedPerson.getAge(), updatedPerson.getAddress(), updatedPerson.getPhone()));
+    }
+
+    @Override
+    public Mono<Void> deletePerson(Long id) {
+        return Mono.justOrEmpty(personRepository.findById(id))
+                .switchIfEmpty(Mono.error(new CustomException("Person not found")))
+                .doOnNext(personRepository::delete)
+                .then();
+    }
 }
